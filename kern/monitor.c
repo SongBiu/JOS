@@ -22,11 +22,13 @@ struct Command {
 };
 
 static struct Command commands[] = {
-	{ "help", "Display this list of commands", mon_help },
-	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "stack backtrace", mon_backtrace },
-	{ "showmappings", "show the relation of physical page mappings", show_mappings },
-	{ "mPerm", "modify the permission", modify_permission}
+	{"help", "Display this list of commands", mon_help},
+	{"kerninfo", "Display information about the kernel", mon_kerninfo},
+	{"backtrace", "stack backtrace", mon_backtrace},
+	{"showmappings", "show the relation of physical page mappings", mon_showmappings},
+	{"mPerm", "modify the permission", mon_mPerm},
+	{"dump", "dump the memory", mon_dump},
+	{"mAddr", "modify the info of virtual memory\n", mon_mAddr}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -94,12 +96,9 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	}
 	return 0;
 }
-
-int show_mappings(int argc, char **argv, struct Trapframe *tf)
+void showmappings(uintptr_t start, uintptr_t end)
 {
-	assert(argc == 3);
-	uintptr_t start = strtol(argv[1], NULL, 16), end = strtol(argv[2], NULL, 16);
-	cprintf("Following are address mapping from %x to %x:\n", start, end);
+	cprintf("Following are address mapping from 0x%x to 0x%x:\n", start, end);
 	uintptr_t current_page_address;
 	struct PageInfo *page = NULL;
 	pte_t *pte = NULL;
@@ -108,53 +107,42 @@ int show_mappings(int argc, char **argv, struct Trapframe *tf)
 		page = page_lookup(kern_pgdir, (void *)current_page_address, &pte);
 		if (!page)
 		{
-			cprintf("  The virtual address %x have no physical page\n", current_page_address);
+			cprintf("  The virtual address 0x%x have no physical page\n", current_page_address);
 			continue;
 		}
-		cprintf("  The virtual address is %x\n", current_page_address);
-		cprintf("    The mapping physical address is %08x\n", page2pa(page));
+		cprintf("  The virtual address is 0x%x\n", current_page_address);
+		cprintf("    The mapping physical page address is 0x%08x\n", page2pa(page));
 		cprintf("    The permissions bits:\n");
 		cprintf("      PTE_P: %d PTE_W: %d PTE_U: %d PTE_PWT: %d PTE_PCD: %d PTE_A: %d PTE_D: %d PTE_PS: %d PTE_G: %d\n\n",
-				(*pte & PTE_P) != 0,
-				(*pte & PTE_W) != 0,
-				(*pte & PTE_U) != 0,
-				(*pte & PTE_PWT) != 0,
-				(*pte & PTE_PCD) != 0,
-				(*pte & PTE_A) != 0,
-				(*pte & PTE_D) != 0,
-				(*pte & PTE_PS) != 0,
-				(*pte & PTE_G) != 0);
+				!!(*pte & PTE_P),
+				!!(*pte & PTE_W),
+				!!(*pte & PTE_U),
+				!!(*pte & PTE_PWT),
+				!!(*pte & PTE_PCD),
+				!!(*pte & PTE_A),
+				!!(*pte & PTE_D),
+				!!(*pte & PTE_PS),
+				!!(*pte & PTE_G));
 	}
+	return;
+}
+int mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	// showmappings start end
+	assert(argc == 3);
+	uintptr_t start = strtol(argv[1], NULL, 16), end = strtol(argv[2], NULL, 16);
+	if (start != ROUNDUP(start, PGSIZE) || end != ROUNDUP(end, PGSIZE))
+	{
+		cprintf("Command is showmappings 0xaddr_start 0xaddr_end\n");
+		return 0;
+	}
+	showmappings(start, end);
 	return 0;
 }
-int modify_permission(int argc, char **argv, struct Trapframe *tf)
+void mPerm(char *ops, uintptr_t va, char *perm, int new_perm)
 {
-	uintptr_t virtual_address = strtol(argv[2], NULL, 16);
-	// ops: 0-SET 1-CLEAR 2-CHANGE
-	char *ops = argv[1];
-	int new_perm = 0;
-	char *perm = argv[3];
+	pte_t *pte = pgdir_walk(kern_pgdir, (void *)va, 1);
 	uint32_t tmp = 0xffffffff;
-	pte_t *pte = pgdir_walk(kern_pgdir, (void *)virtual_address, 0);
-	if (!strcmp(ops, "CHANGE"))
-	{
-		assert(argc == 5);
-		new_perm = strtol(argv[4], NULL, 10);
-	}
-	else if (!strcmp(ops, "SET"))
-	{
-		assert(argc == 4);
-		new_perm = 1;
-	}
-	else if (!strcmp(ops, "CLEAR"))
-	{
-		assert(argc == 4);
-		new_perm = 0;
-	}
-	else 
-	{
-		panic("INVALID COMMAND\n");
-	}
 	if (new_perm == 1)
 	{
 		tmp = 0;
@@ -203,9 +191,117 @@ int modify_permission(int argc, char **argv, struct Trapframe *tf)
 	{
 		*pte &= tmp;
 	}
+	return;
+}
+int mon_mPerm(int argc, char **argv, struct Trapframe *tf)
+{
+	char *ops = argv[1];
+	uintptr_t va = strtol(argv[2], NULL, 16);
+	char *perm = argv[3];
+	int new_perm = 0;
+	if (va != (uintptr_t)ROUNDUP(va, PGSIZE))
+	{
+		cprintf("The command is mPerm SET|CLEAR|CHANGE perm (new_perm)?\n");
+		return 0;
+	}
+	if (!strcmp(ops, "CHANGE"))
+	{
+		assert(argc == 5);
+		new_perm = strtol(argv[4], NULL, 10);
+	}
+	else if (!strcmp(ops, "SET"))
+	{
+		assert(argc == 4);
+		new_perm = 1;
+	}
+	else if (!strcmp(ops, "CLEAR"))
+	{
+		assert(argc == 4);
+		new_perm = 0;
+	}
+	else 
+	{
+		cprintf("INVALID COMMAND\n");
+	}
+	mPerm(ops, va, perm, new_perm);
 	return 0;
 }
-
+void dump_v(uintptr_t va_start, uintptr_t va_end)
+{
+	uintptr_t current_va;
+	for (current_va = va_start; current_va <= va_end; current_va += PGSIZE)
+	{
+		cprintf("The virtual address is 0x%08x and content is 0x%08x\n", current_va, *(uint32_t *)current_va);
+	}
+	return;
+}
+void dump_p(physaddr_t pa_start, physaddr_t pa_end)
+{
+	physaddr_t current_pa;
+	for (current_pa = pa_start; current_pa <= pa_end; current_pa += PGSIZE)
+	{
+		cprintf("The physical address is 0x%08x and content is 0x%08x\n", current_pa, *(uint32_t *)KADDR(current_pa));
+	}
+	return;
+}
+int mon_dump(int argc, char **argv, struct Trapframe *tf)
+{
+	// dump start end
+	assert(argc == 4);
+	uintptr_t v_start, v_end;
+	physaddr_t p_start, p_end;
+	char *addr_type = argv[1];
+	if (!strcmp(addr_type, "physical"))
+	{
+		p_start = strtol(argv[2], NULL, 16);
+		p_end = strtol(argv[3], NULL, 16);
+		if (p_start != ROUNDUP(p_start, PGSIZE) || p_end != ROUNDUP(p_end, PGSIZE))
+		{
+			cprintf("Command is dump 0xaddr_start 0xaddr_end\n");
+			return 0;
+		}
+		dump_p(p_start, p_end);
+	}
+	else if (!strcmp(addr_type, "virtual"))
+	{
+		v_start = strtol(argv[2], NULL, 16);
+		v_end = strtol(argv[3], NULL, 16);
+		if (v_start != ROUNDUP(v_start, PGSIZE) || v_end != ROUNDUP(v_end, PGSIZE))
+		{
+			cprintf("Command is dump 0xaddr_start 0xaddr_end\n");
+			return 0;
+		}
+		dump_v(v_start, v_end);
+	}
+	else
+	{
+		cprintf("INVAILD ADDRESS TYPE\n");
+		return 0;
+	}
+	
+	
+	return 0;
+}
+void mAddr(uintptr_t va, uint32_t info)
+{
+	*(uint32_t *)va = info;
+	return;
+}
+int mon_mAddr(int argc, char **argv, struct Trapframe *tf)
+{
+	assert(argc == 3);
+	uintptr_t va;
+	uint32_t info;
+	va = strtol(argv[1], NULL, 16);
+	info = strtol(argv[2], NULL, 16);
+	if (va != ROUNDUP(va, PGSIZE))
+	{
+		cprintf("Command: mAddr 0xva info");
+		return 0;
+	}
+	mAddr(va, info);
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "
@@ -266,8 +362,3 @@ monitor(struct Trapframe *tf)
 				break;
 	}
 }
-/*
-showmappings 0xf0000000 0xf0005000
-mPerm SET 0xf0000000 PTE_U
-mPerm CHANGE 0xf0000000 PTE_U
-*/

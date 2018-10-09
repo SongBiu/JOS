@@ -142,7 +142,7 @@ inb(int port)
     7c6b:	ba f7 01 00 00       	mov    $0x1f7,%edx
     7c70:	89 e5                	mov    %esp,%ebp
     7c72:	ec                   	in     (%dx),%al
-	// wait for disk reaady
+	// wait for disk ready
 	while ((inb(0x1F7) & 0xC0) != 0x40)
     7c73:	83 e0 c0             	and    $0xffffffc0,%eax
     7c76:	3c 40                	cmp    $0x40,%al

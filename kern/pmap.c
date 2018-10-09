@@ -103,10 +103,7 @@ boot_alloc(uint32_t n)
 	// LAB 2: Your code here.
 	result = nextfree;
 	nextfree = ROUNDUP(nextfree + n, PGSIZE);
-	if ((uint32_t)nextfree - KERNBASE > (npages * PGSIZE))
-	{
-		panic("Memory is out of numbers\n");
-	}
+	assert((uint32_t) nextfree - KERNBASE <= (npages * PGSIZE));
 	return result;
 
 }
@@ -531,9 +528,8 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	pte_t *pte = NULL;
-	pde_t *pde = NULL;
 	struct PageInfo *page = NULL;
-	pde = &pgdir[PDX(va)];
+	int perm = 0xffffffff;
 	page = page_lookup(pgdir, va, &pte);
 	if (!page)
 	{
@@ -541,7 +537,8 @@ page_remove(pde_t *pgdir, void *va)
 	}
 	page_decref(page);
 	tlb_invalidate(pgdir, va);
-	*pte = 0;
+	perm ^= PTE_P;
+	(*pte) &= perm;
 	return;
 }
 
