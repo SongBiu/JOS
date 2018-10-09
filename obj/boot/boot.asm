@@ -170,40 +170,39 @@ static inline void
 outb(int port, uint8_t data)
 {
 	asm volatile("outb %0,%w1" : : "a" (data), "d" (port));
-    7c88:	ba f2 01 00 00       	mov    $0x1f2,%edx
-    7c8d:	b0 01                	mov    $0x1,%al
+    7c88:	b0 01                	mov    $0x1,%al
+    7c8a:	ba f2 01 00 00       	mov    $0x1f2,%edx
     7c8f:	ee                   	out    %al,(%dx)
     7c90:	ba f3 01 00 00       	mov    $0x1f3,%edx
     7c95:	88 c8                	mov    %cl,%al
     7c97:	ee                   	out    %al,(%dx)
+
+	outb(0x1F2, 1);		// count = 1
+	outb(0x1F3, offset);
+	outb(0x1F4, offset >> 8);
     7c98:	89 c8                	mov    %ecx,%eax
     7c9a:	ba f4 01 00 00       	mov    $0x1f4,%edx
     7c9f:	c1 e8 08             	shr    $0x8,%eax
     7ca2:	ee                   	out    %al,(%dx)
+	outb(0x1F5, offset >> 16);
     7ca3:	89 c8                	mov    %ecx,%eax
     7ca5:	ba f5 01 00 00       	mov    $0x1f5,%edx
     7caa:	c1 e8 10             	shr    $0x10,%eax
     7cad:	ee                   	out    %al,(%dx)
+	outb(0x1F6, (offset >> 24) | 0xE0);
     7cae:	89 c8                	mov    %ecx,%eax
     7cb0:	ba f6 01 00 00       	mov    $0x1f6,%edx
     7cb5:	c1 e8 18             	shr    $0x18,%eax
     7cb8:	83 c8 e0             	or     $0xffffffe0,%eax
     7cbb:	ee                   	out    %al,(%dx)
-    7cbc:	ba f7 01 00 00       	mov    $0x1f7,%edx
-    7cc1:	b0 20                	mov    $0x20,%al
+    7cbc:	b0 20                	mov    $0x20,%al
+    7cbe:	ba f7 01 00 00       	mov    $0x1f7,%edx
     7cc3:	ee                   	out    %al,(%dx)
-	outb(0x1F5, offset >> 16);
-	outb(0x1F6, (offset >> 24) | 0xE0);
 	outb(0x1F7, 0x20);	// cmd 0x20 - read sectors
 
 	// wait for disk to be ready
 	waitdisk();
     7cc4:	e8 a1 ff ff ff       	call   7c6a <waitdisk>
-}
-
-static inline void
-insl(int port, void *addr, int cnt)
-{
 	asm volatile("cld\n\trepne\n\tinsl"
     7cc9:	8b 7d 08             	mov    0x8(%ebp),%edi
     7ccc:	b9 80 00 00 00       	mov    $0x80,%ecx
@@ -219,107 +218,43 @@ insl(int port, void *addr, int cnt)
     7cdb:	c3                   	ret    
 
 00007cdc <readseg>:
-
-// Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
-// Might copy more than asked
-void
-readseg(uint32_t pa, uint32_t count, uint32_t offset)
 {
     7cdc:	55                   	push   %ebp
     7cdd:	89 e5                	mov    %esp,%ebp
     7cdf:	57                   	push   %edi
     7ce0:	56                   	push   %esi
-
-	// round down to sector boundary
-	pa &= ~(SECTSIZE - 1);
-
-	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
     7ce1:	8b 7d 10             	mov    0x10(%ebp),%edi
-
-// Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
-// Might copy more than asked
-void
-readseg(uint32_t pa, uint32_t count, uint32_t offset)
 {
     7ce4:	53                   	push   %ebx
-	uint32_t end_pa;
-
 	end_pa = pa + count;
     7ce5:	8b 75 0c             	mov    0xc(%ebp),%esi
-
-// Read 'count' bytes at 'offset' from kernel into physical address 'pa'.
-// Might copy more than asked
-void
-readseg(uint32_t pa, uint32_t count, uint32_t offset)
 {
     7ce8:	8b 5d 08             	mov    0x8(%ebp),%ebx
-
-	// round down to sector boundary
-	pa &= ~(SECTSIZE - 1);
-
-	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
     7ceb:	c1 ef 09             	shr    $0x9,%edi
-void
-readseg(uint32_t pa, uint32_t count, uint32_t offset)
-{
-	uint32_t end_pa;
-
 	end_pa = pa + count;
     7cee:	01 de                	add    %ebx,%esi
-
-	// round down to sector boundary
-	pa &= ~(SECTSIZE - 1);
-
-	// translate from bytes to sectors, and kernel starts at sector 1
 	offset = (offset / SECTSIZE) + 1;
     7cf0:	47                   	inc    %edi
-	uint32_t end_pa;
-
-	end_pa = pa + count;
-
-	// round down to sector boundary
 	pa &= ~(SECTSIZE - 1);
     7cf1:	81 e3 00 fe ff ff    	and    $0xfffffe00,%ebx
-	offset = (offset / SECTSIZE) + 1;
-
-	// If this is too slow, we could read lots of sectors at a time.
-	// We'd write more to memory than asked, but it doesn't matter --
-	// we load in increasing order.
 	while (pa < end_pa) {
     7cf7:	39 f3                	cmp    %esi,%ebx
     7cf9:	73 12                	jae    7d0d <readseg+0x31>
-		// Since we haven't enabled paging yet and we're using
-		// an identity segment mapping (see boot.S), we can
-		// use physical addresses directly.  This won't be the
-		// case once JOS enables the MMU.
 		readsect((uint8_t*) pa, offset);
     7cfb:	57                   	push   %edi
     7cfc:	53                   	push   %ebx
-		pa += SECTSIZE;
 		offset++;
     7cfd:	47                   	inc    %edi
-		// Since we haven't enabled paging yet and we're using
-		// an identity segment mapping (see boot.S), we can
-		// use physical addresses directly.  This won't be the
-		// case once JOS enables the MMU.
-		readsect((uint8_t*) pa, offset);
 		pa += SECTSIZE;
     7cfe:	81 c3 00 02 00 00    	add    $0x200,%ebx
-	while (pa < end_pa) {
-		// Since we haven't enabled paging yet and we're using
-		// an identity segment mapping (see boot.S), we can
-		// use physical addresses directly.  This won't be the
-		// case once JOS enables the MMU.
 		readsect((uint8_t*) pa, offset);
     7d04:	e8 73 ff ff ff       	call   7c7c <readsect>
-		pa += SECTSIZE;
 		offset++;
     7d09:	58                   	pop    %eax
     7d0a:	5a                   	pop    %edx
     7d0b:	eb ea                	jmp    7cf7 <readseg+0x1b>
-	}
 }
     7d0d:	8d 65 f4             	lea    -0xc(%ebp),%esp
     7d10:	5b                   	pop    %ebx
@@ -329,43 +264,25 @@ readseg(uint32_t pa, uint32_t count, uint32_t offset)
     7d14:	c3                   	ret    
 
 00007d15 <bootmain>:
-void readsect(void*, uint32_t);
-void readseg(uint32_t, uint32_t, uint32_t);
-
-void
-bootmain(void)
 {
     7d15:	55                   	push   %ebp
     7d16:	89 e5                	mov    %esp,%ebp
     7d18:	56                   	push   %esi
     7d19:	53                   	push   %ebx
-	struct Proghdr *ph, *eph;
-
-	// read 1st page off disk
 	readseg((uint32_t) ELFHDR, SECTSIZE*8, 0);
     7d1a:	6a 00                	push   $0x0
     7d1c:	68 00 10 00 00       	push   $0x1000
     7d21:	68 00 00 01 00       	push   $0x10000
     7d26:	e8 b1 ff ff ff       	call   7cdc <readseg>
-
-	// is this a valid ELF?
 	if (ELFHDR->e_magic != ELF_MAGIC)
     7d2b:	83 c4 0c             	add    $0xc,%esp
     7d2e:	81 3d 00 00 01 00 7f 	cmpl   $0x464c457f,0x10000
     7d35:	45 4c 46 
     7d38:	75 37                	jne    7d71 <bootmain+0x5c>
-		goto bad;
-
-	// load each program segment (ignores ph flags)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
     7d3a:	a1 1c 00 01 00       	mov    0x1001c,%eax
 	eph = ph + ELFHDR->e_phnum;
     7d3f:	0f b7 35 2c 00 01 00 	movzwl 0x1002c,%esi
-	// is this a valid ELF?
-	if (ELFHDR->e_magic != ELF_MAGIC)
-		goto bad;
-
-	// load each program segment (ignores ph flags)
 	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
     7d46:	8d 98 00 00 01 00    	lea    0x10000(%eax),%ebx
 	eph = ph + ELFHDR->e_phnum;
@@ -374,36 +291,17 @@ bootmain(void)
 	for (; ph < eph; ph++)
     7d51:	39 f3                	cmp    %esi,%ebx
     7d53:	73 16                	jae    7d6b <bootmain+0x56>
-		// p_pa is the load address of this segment (as well
-		// as the physical address)
 		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
     7d55:	ff 73 04             	pushl  0x4(%ebx)
     7d58:	ff 73 14             	pushl  0x14(%ebx)
-		goto bad;
-
-	// load each program segment (ignores ph flags)
-	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
-	eph = ph + ELFHDR->e_phnum;
 	for (; ph < eph; ph++)
     7d5b:	83 c3 20             	add    $0x20,%ebx
-		// p_pa is the load address of this segment (as well
-		// as the physical address)
 		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
     7d5e:	ff 73 ec             	pushl  -0x14(%ebx)
     7d61:	e8 76 ff ff ff       	call   7cdc <readseg>
-		goto bad;
-
-	// load each program segment (ignores ph flags)
-	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
-	eph = ph + ELFHDR->e_phnum;
 	for (; ph < eph; ph++)
     7d66:	83 c4 0c             	add    $0xc,%esp
     7d69:	eb e6                	jmp    7d51 <bootmain+0x3c>
-		// as the physical address)
-		readseg(ph->p_pa, ph->p_memsz, ph->p_offset);
-
-	// call the entry point from the ELF header
-	// note: does not return!
 	((void (*)(void)) (ELFHDR->e_entry))();
     7d6b:	ff 15 18 00 01 00    	call   *0x10018
 }

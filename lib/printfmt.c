@@ -168,11 +168,6 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case 'c':
 			putch(va_arg(ap, int), putdat);
 			break;
-		// set color
-		case 'm':
-			num = getint(&ap, lflag);
-			textcolor = num;
-			break;
 
 		// error message
 		case 'e':

@@ -6,6 +6,7 @@
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <kern/pmap.h>
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
@@ -23,7 +24,9 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "stack backtrace", mon_backtrace }
+	{ "backtrace", "stack backtrace", mon_backtrace },
+	{ "showmappings", "show the relation of physical page mappings", show_mappings },
+	{ "mPerm", "modify the permission", modify_permission}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -92,7 +95,116 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
-
+int show_mappings(int argc, char **argv, struct Trapframe *tf)
+{
+	assert(argc == 3);
+	uintptr_t start = strtol(argv[1], NULL, 16), end = strtol(argv[2], NULL, 16);
+	cprintf("Following are address mapping from %x to %x:\n", start, end);
+	uintptr_t current_page_address;
+	struct PageInfo *page = NULL;
+	pte_t *pte = NULL;
+	for (current_page_address = start; current_page_address <= end; current_page_address += PGSIZE)
+	{
+		page = page_lookup(kern_pgdir, (void *)current_page_address, &pte);
+		if (!page)
+		{
+			cprintf("  The virtual address %x have no physical page\n", current_page_address);
+			continue;
+		}
+		cprintf("  The virtual address is %x\n", current_page_address);
+		cprintf("    The mapping physical address is %08x\n", page2pa(page));
+		cprintf("    The permissions bits:\n");
+		cprintf("      PTE_P: %d PTE_W: %d PTE_U: %d PTE_PWT: %d PTE_PCD: %d PTE_A: %d PTE_D: %d PTE_PS: %d PTE_G: %d\n\n",
+				(*pte & PTE_P) != 0,
+				(*pte & PTE_W) != 0,
+				(*pte & PTE_U) != 0,
+				(*pte & PTE_PWT) != 0,
+				(*pte & PTE_PCD) != 0,
+				(*pte & PTE_A) != 0,
+				(*pte & PTE_D) != 0,
+				(*pte & PTE_PS) != 0,
+				(*pte & PTE_G) != 0);
+	}
+	return 0;
+}
+int modify_permission(int argc, char **argv, struct Trapframe *tf)
+{
+	uintptr_t virtual_address = strtol(argv[2], NULL, 16);
+	// ops: 0-SET 1-CLEAR 2-CHANGE
+	char *ops = argv[1];
+	int new_perm = 0;
+	char *perm = argv[3];
+	uint32_t tmp = 0xffffffff;
+	pte_t *pte = pgdir_walk(kern_pgdir, (void *)virtual_address, 0);
+	if (!strcmp(ops, "CHANGE"))
+	{
+		assert(argc == 5);
+		new_perm = strtol(argv[4], NULL, 10);
+	}
+	else if (!strcmp(ops, "SET"))
+	{
+		assert(argc == 4);
+		new_perm = 1;
+	}
+	else if (!strcmp(ops, "CLEAR"))
+	{
+		assert(argc == 4);
+		new_perm = 0;
+	}
+	else 
+	{
+		panic("INVALID COMMAND\n");
+	}
+	if (new_perm == 1)
+	{
+		tmp = 0;
+	}
+	if (strcmp(perm, "PTE_P") == 0)
+	{
+		tmp = tmp ^ PTE_P;
+	}
+	else if (strcmp(perm, "PTE_W") == 0)
+	{
+		tmp = tmp ^ PTE_W;
+	}
+	else if (strcmp(perm, "PTE_U") == 0)
+	{
+		tmp = tmp ^ PTE_U;
+	}
+	else if (strcmp(perm, "PTE_PWT") == 0)
+	{
+		tmp = tmp ^ PTE_PWT;
+	}
+	else if (strcmp(perm, "PTE_PCD") == 0)
+	{
+		tmp = tmp ^ PTE_PCD;
+	}
+	else if (strcmp(perm, "PTE_A") == 0)
+	{
+		tmp = tmp ^ PTE_A;
+	}
+	else if (strcmp(perm, "PTE_D") == 0)
+	{
+		tmp = tmp ^ PTE_D;
+	}
+	else if (strcmp(perm, "PTE_PS") == 0)
+	{
+		tmp = tmp ^ PTE_PS;
+	}
+	else if (strcmp(perm, "PTE_G") == 0)
+	{
+		tmp = tmp ^ PTE_G;
+	}
+	if (new_perm == 1)
+	{
+		*pte |= tmp;
+	}
+	else
+	{
+		*pte &= tmp;
+	}
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
@@ -154,3 +266,8 @@ monitor(struct Trapframe *tf)
 				break;
 	}
 }
+/*
+showmappings 0xf0000000 0xf0005000
+mPerm SET 0xf0000000 PTE_U
+mPerm CHANGE 0xf0000000 PTE_U
+*/

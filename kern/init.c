@@ -41,14 +41,13 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
-	test_backtrace(5);
+	// test_backtrace(5);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
-	cprintf("hahahah I am joker!\n");
-	unsigned int i = 0x00646c72;
-   	cprintf("x=%d y=%d", 3);
 	// Drop into the kernel monitor.
+
+	// show_mappings();
 	while (1)
 	{
 		struct Trapframe *tf;
