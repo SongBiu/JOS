@@ -1,6 +1,8 @@
 # Prerequisites
 *.d
-
+jos.out*
+obj/
+.vscode/
 # Object files
 *.o
 *.ko
