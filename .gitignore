@@ -1,6 +1,7 @@
 # Prerequisites
 *.d
-jos.out*
+jos.out
+jos.out.*
 obj/
 .vscode/
 # Object files
