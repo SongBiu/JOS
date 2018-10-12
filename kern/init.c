@@ -3,33 +3,20 @@
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/assert.h>
-#include <inc/x86.h>
 
 #include <kern/monitor.h>
 #include <kern/console.h>
 #include <kern/pmap.h>
 #include <kern/kclock.h>
+#include <kern/env.h>
+#include <kern/trap.h>
 
-void
-test_backtrace(int x)
-{
-	cprintf("entering test_backtrace %08d\n", x);
-	if (x > 0)
-	{
-		test_backtrace(x - 1);
-	}
-	else
-	{
-		mon_backtrace(0, 0, 0);
-	}
-	cprintf("leaving test_backtrace %08d\n", x);
-}
 
 void
 i386_init(void)
 {
 	extern char edata[], end[];
-	
+
 	// Before doing anything else, complete the ELF loading process.
 	// Clear the uninitialized global data (BSS) section of our program.
 	// This ensures that all static/global variables start out zero.
@@ -41,20 +28,23 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
-	// test_backtrace(5);
-
 	// Lab 2 memory management initialization functions
 	mem_init();
-	// Drop into the kernel monitor.
 
-	// show_mappings();
-	while (1)
-	{
-		struct Trapframe *tf;
-		tf = (struct Trapframe *)read_ebp();
-		monitor(tf);
-	}
-		
+	// Lab 3 user environment initialization functions
+	env_init();
+	trap_init();
+
+#if defined(TEST)
+	// Don't touch -- used by grading script!
+	ENV_CREATE(TEST, ENV_TYPE_USER);
+#else
+	// Touch all you want.
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+#endif // TEST*
+
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
 }
 
 

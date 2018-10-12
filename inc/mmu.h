@@ -155,7 +155,9 @@ struct Segdesc {
 	unsigned sd_base_23_16 : 8; // Middle bits of segment base address
 	unsigned sd_type : 4;       // Segment type (see STS_ constants)
 	unsigned sd_s : 1;          // 0 = system, 1 = application
+	// 描述符的隐私级别
 	unsigned sd_dpl : 2;        // Descriptor Privilege Level
+	// 是否启用
 	unsigned sd_p : 1;          // Present
 	unsigned sd_lim_19_16 : 4;  // High bits of segment limit
 	unsigned sd_avl : 1;        // Unused (available for software use)

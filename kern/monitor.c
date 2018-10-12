@@ -10,7 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
-
+#include <kern/trap.h>
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
 
@@ -131,11 +131,7 @@ int mon_showmappings(int argc, char **argv, struct Trapframe *tf)
 	// showmappings start end
 	assert(argc == 3);
 	uintptr_t start = strtol(argv[1], NULL, 16), end = strtol(argv[2], NULL, 16);
-	if (start != ROUNDUP(start, PGSIZE) || end != ROUNDUP(end, PGSIZE))
-	{
-		cprintf("Command is showmappings 0xaddr_start 0xaddr_end\n");
-		return 0;
-	}
+	assert(start <= end);
 	showmappings(start, end);
 	return 0;
 }
@@ -199,11 +195,6 @@ int mon_mPerm(int argc, char **argv, struct Trapframe *tf)
 	uintptr_t va = strtol(argv[2], NULL, 16);
 	char *perm = argv[3];
 	int new_perm = 0;
-	if (va != (uintptr_t)ROUNDUP(va, PGSIZE))
-	{
-		cprintf("The command is mPerm SET|CLEAR|CHANGE perm (new_perm)?\n");
-		return 0;
-	}
 	if (!strcmp(ops, "CHANGE"))
 	{
 		assert(argc == 5);
@@ -255,22 +246,14 @@ int mon_dump(int argc, char **argv, struct Trapframe *tf)
 	{
 		p_start = strtol(argv[2], NULL, 16);
 		p_end = strtol(argv[3], NULL, 16);
-		if (p_start != ROUNDUP(p_start, PGSIZE) || p_end != ROUNDUP(p_end, PGSIZE))
-		{
-			cprintf("Command is dump 0xaddr_start 0xaddr_end\n");
-			return 0;
-		}
+		assert(p_start <= p_end);
 		dump_p(p_start, p_end);
 	}
 	else if (!strcmp(addr_type, "virtual"))
 	{
 		v_start = strtol(argv[2], NULL, 16);
 		v_end = strtol(argv[3], NULL, 16);
-		if (v_start != ROUNDUP(v_start, PGSIZE) || v_end != ROUNDUP(v_end, PGSIZE))
-		{
-			cprintf("Command is dump 0xaddr_start 0xaddr_end\n");
-			return 0;
-		}
+		assert(v_start <= v_end);
 		dump_v(v_start, v_end);
 	}
 	else
@@ -278,8 +261,6 @@ int mon_dump(int argc, char **argv, struct Trapframe *tf)
 		cprintf("INVAILD ADDRESS TYPE\n");
 		return 0;
 	}
-	
-	
 	return 0;
 }
 void mAddr(uintptr_t va, uint32_t info)
@@ -294,11 +275,6 @@ int mon_mAddr(int argc, char **argv, struct Trapframe *tf)
 	uint32_t info;
 	va = strtol(argv[1], NULL, 16);
 	info = strtol(argv[2], NULL, 16);
-	if (va != ROUNDUP(va, PGSIZE))
-	{
-		cprintf("Command: mAddr 0xva info");
-		return 0;
-	}
 	mAddr(va, info);
 	return 0;
 }
@@ -353,8 +329,9 @@ monitor(struct Trapframe *tf)
 
 	cprintf("Welcome to the JOS kernel monitor!\n");
 	cprintf("Type 'help' for a list of commands.\n");
-	cprintf("%m%s\n%m%s\n%m%s\n", 0x0100, "blue", 0x0200, "green", 0x0400, "red");
 
+	if (tf != NULL)
+		print_trapframe(tf);
 	while (1) {
 		buf = readline("K> ");
 		if (buf != NULL)
