@@ -69,7 +69,7 @@ struct Env {
 	*/
 	unsigned env_status;		// Status of the environment
 
-	// 进程的运行时间
+	// 进程的运行次数
 	uint32_t env_runs;		// Number of times environment has run
 
 

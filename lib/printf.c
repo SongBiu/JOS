@@ -43,13 +43,13 @@ vcprintf(const char *fmt, va_list ap)
 	b.cnt = 0;
 	vprintfmt((void*)putch, &b, fmt, ap);
 	sys_cputs(b.buf, b.idx);
-
 	return b.cnt;
 }
 
 int
 cprintf(const char *fmt, ...)
 {
+	
 	va_list ap;
 	int cnt;
 
