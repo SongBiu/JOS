@@ -57,10 +57,11 @@
  * 代码要求：对每个系统调用生成指针。
  */
 TRAPHANDLER_NOEC(handle_divide, T_DIVIDE)
-
-TRAPHANDLER_NOEC(handle_pgflt, T_PGFLT)
-
-TRAPHANDLER(handle_syscall, T_SYSCALL)
+TRAPHANDLER_NOEC(handle_brkpt, T_BRKPT)
+TRAPHANDLER(handle_segnp, T_SEGNP)
+TRAPHANDLER(handle_gpflt, T_GPFLT)
+TRAPHANDLER(handle_pgflt, T_PGFLT)
+TRAPHANDLER_NOEC(handle_syscall, T_SYSCALL)
 
 /*
  * Lab 3: Your code here for _alltraps
@@ -95,5 +96,5 @@ _alltraps:
 	movw %ax, %ds
 	movw %ax, %es
 
-	pushl %esp
+	push %esp
 	call trap

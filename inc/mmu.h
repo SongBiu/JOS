@@ -217,9 +217,8 @@ struct Segdesc {
 struct Taskstate {
 	// 老的段选择子
 	uint32_t ts_link;	// Old ts selector
-	// 任务栈指针
+	// esp0和ss0分别是内核态栈指针和段选择子， 特权级0
 	uintptr_t ts_esp0;	// Stack pointers and segment selectors
-	// 特权级
 	uint16_t ts_ss0;	//   after an increase in privilege level
 	uint16_t ts_padding1;
 	uintptr_t ts_esp1;
