@@ -11,29 +11,12 @@ check_page_free_list() succeeded!
 check_page_installed_pgdir() succeeded!
 [00000000] new env 00001000
 Incoming TRAP frame at 0xefffffbc
+this is 48
 Incoming TRAP frame at 0xefffffbc
-[00001000] user fault va f0100000 ip 00800036
-TRAP frame at 0xf01d3000
-  edi  0x00000000
-  esi  0x00000000
-  ebp  0xeebfdfc0
-  oesp 0xefffffdc
-  ebx  0x00802000
-  edx  0x0080202c
-  ecx  0x00000000
-  eax  0xeec00000
-  es   0x----0023
-  ds   0x----0023
-  trap 0x0000000e Page Fault
-  cr2  0xf0100000
-  err  0x00000007 [user, write, protection]
-  eip  0x00800036
-  cs   0x----001b
-  flag 0x00000082
-  esp  0xeebfdfc0
-  ss   0x----0023
+this is 48
+[00001000] user_mem_check assertion failure for va f010000c
 [00001000] free env 00001000
 Destroyed the only environment - nothing more to do!
 Welcome to the JOS kernel monitor!
 Type 'help' for a list of commands.
-qemu-system-i386: terminating on signal 15 from pid 10745 (make)
+qemu-system-i386: terminating on signal 15 from pid 5187 (make)

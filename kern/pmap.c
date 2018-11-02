@@ -181,7 +181,7 @@ mem_init(void)
 	//    - the new image at UPAGES -- kernel R, user R
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
-	// Your code goes here:
+	// 把pages映射到用户页空间中
 	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -189,7 +189,7 @@ mem_init(void)
 	// Permissions:
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
-	// LAB 3: Your code here.
+	// 将envs映射到用户环境中
 	boot_map_region(kern_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -201,7 +201,7 @@ mem_init(void)
 	//       the kernel overflows its stack, it will fault rather than
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
-	// Your code goes here:
+	// 将bootstack映射到内核栈栈顶
 	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -210,8 +210,10 @@ mem_init(void)
 	// We might not have 2^32 - KERNBASE bytes of physical memory, but
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
-	// Your code goes here:
+	// 将所有物理地址映射到虚拟地址KERNBASE
+
 	boot_map_region(kern_pgdir, KERNBASE, (uint32_t)0xffffffff - KERNBASE, 0, PTE_W);
+	
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -591,18 +593,12 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-	uintptr_t cur = (uintptr_t)ROUNDDOWN(va, PGSIZE);
-	int page_num = len / PGSIZE + 1, i;
+	uintptr_t cur, end = (uintptr_t)ROUNDUP(va + len, PGSIZE);
 	pte_t *pte = pgdir_walk(env->env_pgdir, va, 0);
-	if (!pte || (uintptr_t)va > ULIM || !(*pte & perm))
-	{
-		user_mem_check_addr = (uintptr_t)va;
-		return -E_FAULT;
-	}
-	for (i = 0; i < page_num; i++)
+	for (cur = (uintptr_t) va; cur < end; cur = ROUNDDOWN(cur + PGSIZE, PGSIZE))
 	{
 		pte = pgdir_walk(env->env_pgdir, (void *)cur, 0);
-		if (!pte || cur > ULIM || !(*pte & perm))
+		if (!pte || cur >= ULIM || !(*pte & perm))
 		{
 			user_mem_check_addr = cur;
 			return -E_FAULT;

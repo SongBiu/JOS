@@ -57,35 +57,26 @@ static const char *trapname(int trapno)
 	// 没有系统调用
 	return "(unknown trap)";
 }
-
-// Following are trap handle function
-// 0x0
-void handle_divide();
-// 0x3
-void handle_brkpt();
-// 0xb
-void handle_segnp();
-// 0xd
-void handle_gpflt();
-// 0xe
-void handle_pgflt();
-// 0x30
-void handle_syscall();
-
 // 初始化IDT
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
-
+	extern uintptr_t handles[];
 	// LAB 3: Your code here.
-	SETGATE(idt[T_DIVIDE], 0, GD_KT, handle_divide, 0);
-	SETGATE(idt[T_BRKPT], 0, GD_KT, handle_brkpt, 3);
-	SETGATE(idt[T_SEGNP], 0, GD_KT, handle_segnp, 0);
-	SETGATE(idt[T_GPFLT], 0, GD_KT, handle_gpflt, 0);
-	SETGATE(idt[T_PGFLT], 0, GD_KT, handle_pgflt, 0);
-	SETGATE(idt[T_SYSCALL], 0, GD_KT, handle_syscall, 3);
-	
+	int i;
+	for (i = 0; i <= T_SYSCALL; i++)
+	{
+		if (i == T_BRKPT || i == T_SYSCALL)
+		{
+			SETGATE(idt[i], 0, GD_KT, handles[i], 3);
+		}
+		else
+		{
+			SETGATE(idt[i], 0, GD_KT, handles[i], 0);
+		}
+		
+	}	
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -209,7 +200,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-
+	cprintf("this is %d\n", tf->tf_trapno);
 	// tf_cs段描述符， &3 == 3说明来自用户态
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.

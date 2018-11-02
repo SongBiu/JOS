@@ -3,7 +3,6 @@
 #include <inc/lib.h>
 
 int zero;
-
 void
 umain(int argc, char **argv)
 {
