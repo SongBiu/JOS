@@ -200,7 +200,6 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-	cprintf("this is %d\n", tf->tf_trapno);
 	// tf_cs段描述符， &3 == 3说明来自用户态
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.

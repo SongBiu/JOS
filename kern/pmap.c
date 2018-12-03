@@ -123,7 +123,6 @@ mem_init(void)
 {
 	uint32_t cr0;
 	size_t n;
-
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory();
 
@@ -236,6 +235,7 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	check_page_installed_pgdir();
+	
 }
 
 // --------------------------------------------------------------
